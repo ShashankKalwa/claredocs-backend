@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+langchain
+sentence-transformers
+pypdf
+pdf2image
+pillow
+python-dotenv
+openai
+requests
+
+#pip install -r requirements.txt
