@@ -5,10 +5,10 @@ import io
 import time
 from typing import Dict, Any
 
-from src.ingest import DocumentProcessor
-from src.generator import LegalDocumentAnalyzer
-from src.retriever import DocumentRetriever
-from src.utils import validate_file_extension, create_response
+from .ingest import DocumentProcessor
+from .generator import LegalDocumentAnalyzer
+from .retriever import DocumentRetriever
+from .utils import validate_file_extension, create_response
 
 app = FastAPI(title="Legal Document Analyzer API")
 

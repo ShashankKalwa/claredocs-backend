@@ -5,7 +5,7 @@ from pdf2image import convert_from_bytes
 from PIL import Image
 from openai import OpenAI
 import logging
-from utils import get_env_variable
+from .utils import get_env_variable
 
 class DocumentProcessor:
     def __init__(self):

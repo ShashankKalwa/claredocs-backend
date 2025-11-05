@@ -1,5 +1,5 @@
-from embeddings import DocumentEmbeddings
-from chunking import chunk_text
+from .embeddings import DocumentEmbeddings
+from .chunking import chunk_text
 
 class DocumentRetriever:
     def __init__(self, chunk_size=1000, chunk_overlap=200):

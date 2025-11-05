@@ -5,7 +5,7 @@ from openai import OpenAI
 import os
 import json
 import logging
-from utils import get_env_variable
+from .utils import get_env_variable
 
 class LegalDocumentAnalyzer:
     def __init__(self):
