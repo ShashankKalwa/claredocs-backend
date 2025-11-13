@@ -20,6 +20,11 @@ app.add_middleware(
 def root():
     return {"message": "ClareDocs Backend is running successfully!"}
 
+    
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
 
 @app.post("/api/analyze-document")
 async def analyze_document(file: UploadFile = File(...)):
