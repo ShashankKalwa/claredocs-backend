@@ -1,144 +1,88 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import io
 import time
-from typing import Dict, Any
+from .generator import perform_gpt4o_ocr
+from .retriever import analyze_document_text, chunk_text
 
-from .ingest import DocumentProcessor
-from .generator import LegalDocumentAnalyzer
-from .retriever import DocumentRetriever
-from .utils import validate_file_extension, create_response
+app = FastAPI(title="ClareDocs Backend")
 
-app = FastAPI(title="Legal Document Analyzer API")
-
-# Add CORS middleware
+# Allow frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production
+    allow_origins=["*"],  # Change for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize components
-document_processor = DocumentProcessor()
-legal_analyzer = LegalDocumentAnalyzer()
-document_retriever = DocumentRetriever()
 
 @app.get("/")
-async def root():
-    return {"message": "Legal Document Analyzer API is running"}
-
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+def root():
+    return {"message": "ClareDocs Backend is running successfully!"}
 
 
 @app.post("/api/analyze-document")
 async def analyze_document(file: UploadFile = File(...)):
-    """
-    Analyze a legal document (PDF)
-    Uses GPT-4o for OCR if needed, then GPT-4o-mini for analysis
-    """
-    # Validate file extension
-    if not validate_file_extension(file.filename):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
-    
+    """Upload a PDF → OCR → Chunk → Analyze each part."""
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+
     try:
-        # Read file content
-        file_content = await file.read()
-        
-        # Process document (extract text) - this will use GPT-4o for OCR if needed
         start_time = time.time()
-        document_text = document_processor.extract_text_from_pdf(file_content)
-        
-        if not document_text:
-            return create_response("error", "Could not extract text from the document")
-        
-        # Process document for retrieval (chunks only)
-        chunks = document_retriever.process_document(document_text)
-        
-        # Extract key information using GPT-4o-mini
-        # Pass is_ocr_result flag based on whether OCR was used
-        analysis_result = legal_analyzer.extract_key_information(
-            document_text, 
-            is_ocr_result=document_processor.used_ocr_for_extraction
-        )
-        
-        # Calculate processing time
-        processing_time = time.time() - start_time
-        
-        # Create response
-        result = {
-            "filename": file.filename,
-            "text_length": len(document_text),
-            "chunk_count": len(chunks),
-            "processing_time": processing_time,
-            "ocr_used": document_processor.used_ocr_for_extraction,
-            "analysis": analysis_result
+        pdf_bytes = await file.read()
+
+        # Step 1 — OCR
+        ocr_result = perform_gpt4o_ocr(pdf_bytes)
+        full_text = ocr_result["text"]
+        total_pages = ocr_result["pages"]
+
+        if not full_text.strip():
+            raise HTTPException(status_code=500, detail="OCR failed: No text extracted.")
+
+        # Step 2 — Chunking
+        chunks = chunk_text(full_text, chunk_size=4000)
+
+        # Step 3 — Analyze each chunk
+        analyses = []
+        for i, chunk in enumerate(chunks, start=1):
+            print(f"Analyzing chunk {i}/{len(chunks)}...")
+            analysis = analyze_document_text(chunk)
+            analysis["chunk_number"] = i
+            analyses.append(analysis)
+
+        # Step 4 — Merge results
+        summary_texts = [a.get("summary", "") for a in analyses if a]
+        combined_summary = "\n\n".join(summary_texts)
+
+        elapsed = round(time.time() - start_time, 2)
+        return {
+            "status": "success",
+            "message": "Document analyzed successfully.",
+            "report_info": {
+                "filename": file.filename,
+                "total_pages": total_pages,
+                "total_chunks": len(chunks),
+                "processing_time": elapsed
+            },
+            "analysis": {
+                "document_type": analyses[0].get("document_type", "Unknown"),
+                "confidence_level": sum(a.get("confidence_level", 0) for a in analyses) // len(analyses),
+                "language": analyses[0].get("language", "Unknown"),
+                "parties": list({p for a in analyses for p in a.get("parties", [])}),
+                "key_dates": list({d for a in analyses for d in a.get("key_dates", [])}),
+                "obligations_with_deadlines": list({o for a in analyses for o in a.get("obligations_with_deadlines", [])}),
+                "risks": list({r for a in analyses for r in a.get("risks", [])}),
+                "recommendations": list({rec for a in analyses for rec in a.get("recommendations", [])}),
+                "summary": combined_summary or "No summary available."
+            },
+            "chunks": [
+                {
+                    "chunk_number": a["chunk_number"],
+                    "summary": a["summary"],
+                } for a in analyses
+            ]
         }
-        
-        return create_response("success", "Document analyzed successfully", result)
-    
+
     except Exception as e:
-        return create_response("error", f"Error processing document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing document: {str(e)}")
 
-@app.post("/api/analyze-text")
-async def analyze_text(data: Dict[str, Any]):
-    """
-    Analyze text directly without OCR
-    Uses GPT-4o-mini for analysis
-    """
-    try:
-        # Get text from request
-        text = data.get("text", "")
-        
-        if not text:
-            return create_response("error", "No text provided")
-        
-        # Process text
-        start_time = time.time()
-        
-        # Process document for retrieval (chunks only)
-        chunks = document_retriever.process_document(text)
-        
-        # Extract key information using GPT-4o-mini
-        # Set is_ocr_result to False since this is direct text input
-        analysis_result = legal_analyzer.extract_key_information(text, is_ocr_result=False)
-        
-        # Calculate processing time
-        processing_time = time.time() - start_time
-        
-        # Create response
-        result = {
-            "text_length": len(text),
-            "chunk_count": len(chunks),
-            "processing_time": processing_time,
-            "ocr_used": False,
-            "analysis": analysis_result
-        }
-        
-        return create_response("success", "Text analyzed successfully", result)
-    
-    except Exception as e:
-        return create_response("error", f"Error analyzing text: {str(e)}")
-
-@app.post("/api/query-document")
-async def query_document(query_data: Dict[str, Any]):
-    """
-    Query a processed document
-    """
-    try:
-        query = query_data.get("query", "")
-        chunks = query_data.get("chunks", [])
-
-        if not query or not chunks:
-            return create_response("error", "Missing required data")
-
-        # Retrieve relevant chunks (no embeddings)
-        results = document_retriever.retrieve_relevant_chunks(query, chunks)
-        
-        return create_response("success", "Query processed successfully", results)
-    
-    except Exception as e:
-        return create_response("error", f"Error processing query: {str(e)}")
