@@ -1,6 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 import io
 import time
 from typing import Dict, Any
@@ -30,11 +29,6 @@ document_retriever = DocumentRetriever()
 async def root():
     return {"message": "Legal Document Analyzer API is running"}
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
 @app.post("/api/analyze-document")
 async def analyze_document(file: UploadFile = File(...)):
     """
@@ -56,8 +50,8 @@ async def analyze_document(file: UploadFile = File(...)):
         if not document_text:
             return create_response("error", "Could not extract text from the document")
         
-        # Process document for retrieval
-        chunks, embeddings = document_retriever.process_document(document_text)
+        # Process document for retrieval (chunks only)
+        chunks = document_retriever.process_document(document_text)
         
         # Extract key information using GPT-4o-mini
         # Pass is_ocr_result flag based on whether OCR was used
@@ -100,8 +94,8 @@ async def analyze_text(data: Dict[str, Any]):
         # Process text
         start_time = time.time()
         
-        # Process document for retrieval
-        chunks, embeddings = document_retriever.process_document(text)
+        # Process document for retrieval (chunks only)
+        chunks = document_retriever.process_document(text)
         
         # Extract key information using GPT-4o-mini
         # Set is_ocr_result to False since this is direct text input
@@ -132,13 +126,12 @@ async def query_document(query_data: Dict[str, Any]):
     try:
         query = query_data.get("query", "")
         chunks = query_data.get("chunks", [])
-        embeddings = query_data.get("embeddings", [])
-        
-        if not query or not chunks or not embeddings:
+
+        if not query or not chunks:
             return create_response("error", "Missing required data")
-        
-        # Retrieve relevant chunks
-        results = document_retriever.retrieve_relevant_chunks(query, chunks, embeddings)
+
+        # Retrieve relevant chunks (no embeddings)
+        results = document_retriever.retrieve_relevant_chunks(query, chunks)
         
         return create_response("success", "Query processed successfully", results)
     

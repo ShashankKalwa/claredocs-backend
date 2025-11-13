@@ -26,7 +26,7 @@ The Legal Document Analyzer backend is a powerful FastAPI application designed t
 - **PDF Processing**: Extracts text and images from PDF files.
 - **Advanced OCR**: Uses OpenAI's GPT-4o model to perform Optical Character Recognition on documents where text extraction is not possible.
 - **Document Analysis**: Leverages `langchain` and LLMs to analyze document content and extract structured information.
-- **Vector Embeddings**: Creates vector representations of documents for efficient retrieval and similarity search using `sentence-transformers`.
+ 
 - **Dockerized Environment**: Comes with a Docker setup for easy, consistent, and isolated deployment.
 
 ## Project Structure
@@ -44,7 +44,6 @@ backend/
 │   ├── ingest.py       # Handles document ingestion, text extraction, and OCR
 │   ├── generator.py    # Analyzes text and generates insights using an LLM
 │   ├── retriever.py    # Manages document chunking and retrieval
-│   ├── embeddings.py   # Generates text embeddings
 │   ├── chunking.py     # Handles text chunking for processing
 │   └── utils.py        # Utility functions
 └── ...
