@@ -7,7 +7,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 ANALYSIS_MODEL = "gemini-2.5-pro"  # ✅ Latest Gemini model
 
-def analyze_document_text(text: str) -> dict:
+def analyze_with_gemini(text: str) -> dict:
     """
     Uses Gemini 2.5 Pro to extract structured insights from the document.
     Handles legal, academic, or general text with JSON output.
