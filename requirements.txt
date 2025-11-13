@@ -7,7 +7,7 @@ pypdf
 pdf2image
 pillow
 python-dotenv
-openai
+google-generativeai
 requests
 python-multipart
 
