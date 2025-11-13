@@ -1,38 +1,40 @@
 import io
-import base64
 import logging
-from pdf2image import convert_from_bytes
-from openai import OpenAI
 import os
+from pdf2image import convert_from_bytes
+import google.generativeai as genai
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-OCR_MODEL = "gpt-4o"
+# Configure Gemini
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+OCR_MODEL = "gemini-2.5-pro"
 
-def perform_gpt4o_ocr(pdf_bytes: bytes) -> dict:
-    """Perform OCR on each PDF page using GPT-4o Vision and return text + page count."""
+def perform_gemini_ocr(pdf_bytes: bytes) -> dict:
+    """
+    Perform OCR on each PDF page using Gemini 2.5 Pro Vision.
+    Returns full extracted text with page markers and total page count.
+    """
     try:
         pages = convert_from_bytes(pdf_bytes, dpi=200)
         full_text = ""
+        model = genai.GenerativeModel(OCR_MODEL)
 
         for i, page in enumerate(pages):
+            # Convert each PDF page to image bytes
             buffer = io.BytesIO()
-            page.save(buffer, format="JPEG", quality=60)
-            img_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            page.save(buffer, format="JPEG", quality=70)
+            image_data = buffer.getvalue()
 
-            response = client.chat.completions.create(
-                model=OCR_MODEL,
-                messages=[
-                    {"role": "system", "content": "You are an OCR assistant. Extract visible text accurately."},
-                    {"role": "user",
-                     "content": [
-                         {"type": "text", "text": f"Extract text from page {i+1}."},
-                         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-                     ]}
-                ],
-                max_tokens=1500
+            prompt = f"Extract *all visible text* from page {i+1} of this document. Keep reading order and punctuation."
+
+            response = model.generate_content(
+                [prompt, {"mime_type": "image/jpeg", "data": image_data}],
+                generation_config={
+                    "temperature": 0.1,
+                    "max_output_tokens": 1500
+                },
             )
 
-            page_text = response.choices[0].message.content.strip()
+            page_text = response.text.strip() if response.text else ""
             full_text += f"\n\n--- PAGE {i+1} ---\n{page_text}"
 
         return {
@@ -41,5 +43,5 @@ def perform_gpt4o_ocr(pdf_bytes: bytes) -> dict:
         }
 
     except Exception as e:
-        logging.error(f"OCR Error: {e}")
+        logging.error(f"Gemini OCR Error: {e}")
         return {"text": "", "pages": 0}

@@ -1,30 +1,31 @@
 import os
-from openai import OpenAI
+import json
+import google.generativeai as genai
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Configure Gemini client
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-ANALYSIS_MODEL = "gpt-4o-mini"
+ANALYSIS_MODEL = "gemini-2.5-pro"  # ✅ Latest Gemini model
 
 def analyze_document_text(text: str) -> dict:
     """
-    Ask GPT-4o-mini to extract key details, risks, recommendations, etc.
-    Works with any legal, academic, or general PDF content.
+    Uses Gemini 2.5 Pro to extract structured insights from the document.
+    Handles legal, academic, or general text with JSON output.
     """
 
     if not text.strip():
         return {"error": "Empty text"}
 
     try:
-        # Prompt crafted to get structured JSON output
         prompt = f"""
-        You are a precise and professional legal & document analyst.
-        Read the following content and summarize it into a structured analysis.
+        You are a precise and professional document analyst.
+        Read the text below and summarize it into a structured JSON analysis.
 
         TEXT TO ANALYZE:
         ----------------
         {text}
 
-        Respond in JSON format with these fields:
+        Respond strictly in this JSON format:
         {{
             "document_type": "Type of document (e.g. Legal Agreement, Academic Paper, Invoice, etc.)",
             "confidence_level": "Confidence in % (0-100)",
@@ -38,21 +39,20 @@ def analyze_document_text(text: str) -> dict:
         }}
         """
 
-        response = client.chat.completions.create(
-            model=ANALYSIS_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a careful, lawful and detail-oriented analyst."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1000,
-            temperature=0.3
+        model = genai.GenerativeModel(ANALYSIS_MODEL)
+
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.3,
+                "max_output_tokens": 1000,
+                "response_mime_type": "application/json"
+            }
         )
 
-        import json
+        result_text = response.text.strip()
 
-        result_text = response.choices[0].message.content.strip()
-
-        # Parse model’s JSON safely
+        # Try to parse JSON safely
         try:
             result = json.loads(result_text)
         except json.JSONDecodeError:
@@ -61,19 +61,14 @@ def analyze_document_text(text: str) -> dict:
         return result
 
     except Exception as e:
-        return {"error": f"Analysis failed: {str(e)}"}
+        return {"error": f"Gemini 2.5 Pro analysis failed: {str(e)}"}
 
 
 def chunk_text(text: str, chunk_size: int = 4000):
     """
-    Splits large text into manageable chunks for analysis.
-    Ensures that each chunk roughly fits model token limits.
+    Simple text chunking (no embeddings).
+    Keeps each chunk under token limit for smooth Gemini processing.
     """
     text = text.replace("\n", " ").strip()
-    chunks = []
-
-    for i in range(0, len(text), chunk_size):
-        chunk = text[i:i + chunk_size]
-        chunks.append(chunk)
-
+    chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
     return chunks
