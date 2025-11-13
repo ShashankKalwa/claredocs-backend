@@ -9,5 +9,6 @@ pillow
 python-dotenv
 openai
 requests
+python-multipart
 
 #pip install -r requirements.txt
