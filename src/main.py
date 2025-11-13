@@ -29,6 +29,11 @@ document_retriever = DocumentRetriever()
 async def root():
     return {"message": "Legal Document Analyzer API is running"}
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+
 @app.post("/api/analyze-document")
 async def analyze_document(file: UploadFile = File(...)):
     """
