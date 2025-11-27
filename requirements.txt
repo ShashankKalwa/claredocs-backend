@@ -1,8 +1,15 @@
+# --- These LangChain packages are NOT needed for your project ---
+# langchain==0.1.14
+# langchain-core==0.1.52
+# langchain-openai==0.0.7
+# ---------------------------------------------------------------
+
+# Optional: Only if you plan to use embeddings or vector search later
+# sentence-transformers
+# faiss-cpu
+
 fastapi
 uvicorn
-langchain==0.1.14
-langchain-core==0.1.52
-langchain-openai==0.0.7
 pypdf
 pdf2image
 pillow
@@ -11,4 +18,3 @@ google-generativeai
 requests
 python-multipart
 
-#pip install -r requirements.txt
